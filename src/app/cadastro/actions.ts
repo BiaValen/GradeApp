@@ -26,7 +26,7 @@ export async function signup(
 
   // Com "Confirm email" desativado no Supabase, o signUp já retorna uma sessão ativa.
   if (data.session) {
-    redirect("/plano");
+    redirect("/curso");
   }
 
   return { success: true };

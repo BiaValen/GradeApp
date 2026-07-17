@@ -15,5 +15,5 @@ export async function login(_prevState: { error: string } | undefined, formData:
     return { error: "E-mail ou senha inválidos." };
   }
 
-  redirect("/plano");
+  redirect("/curso");
 }

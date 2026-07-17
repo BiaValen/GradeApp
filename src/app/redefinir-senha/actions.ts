@@ -17,5 +17,5 @@ export async function updatePassword(
     return { error: error.message };
   }
 
-  redirect("/plano");
+  redirect("/curso");
 }
