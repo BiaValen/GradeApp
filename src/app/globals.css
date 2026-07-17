@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* App ainda não tem um tema escuro desenhado (os componentes usam cores fixas
+   pensadas pra fundo claro) — força modo claro pra evitar texto ilegível em
+   quem usa o navegador/SO no escuro. Reavaliar se algum dia adicionarmos dark mode de verdade. */
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
