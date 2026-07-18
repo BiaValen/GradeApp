@@ -1,23 +1,19 @@
 import { LIMITE_SOBRECARREGADO } from "@/lib/carga";
 import { calcularHoras } from "@/lib/horas";
-import type { UcTipo } from "@/lib/seed-data";
 import { missingPrerequisites } from "@/lib/status";
-import type { Uc } from "@/lib/types";
+import type { UcTipo } from "@/lib/seed-data";
+import { ehTipoEletivo, ehTipoFixo } from "@/lib/uc-classificacao";
+import type { Curso, Uc } from "@/lib/types";
 
-const TIPOS_OBRIGATORIOS: UcTipo[] = [
-  "bct_fixa",
-  "ecomp_fixa",
-  "ecomp_trajetoria_integrada",
-  "estagio",
-  "tcc",
-  "atividade_complementar",
-];
-const TIPOS_ELETIVOS: UcTipo[] = ["bct_eletiva_interdisciplinar", "bct_eletiva_regular"];
+// "Obrigatório" combina qualquer tipo fixo (por curso, via ehTipoFixo) com os 3 tipos
+// que são obrigatórios em todo curso independente de prefixo (estágio pode não valer
+// pra um curso específico — ver curso.meta_horas_estagio — mas continua contando aqui
+// como categoria obrigatória quando existe). "Eletivo" é qualquer tipo `*_eletiva_*`.
+function ehObrigatorio(tipo: UcTipo): boolean {
+  return ehTipoFixo(tipo) || tipo === "estagio" || tipo === "tcc" || tipo === "atividade_complementar";
+}
+const ehEletivo = ehTipoEletivo;
 
-// 214 créditos: soma oficial da matriz curricular (182 UCs fixas + 10 estágio + 8 TCC +
-// 14 eletivas). Atividades Complementares não têm créditos no PPC, só 108h — por isso
-// não aparecem nessa soma, mas entram no cálculo de horas (ver src/lib/horas.ts).
-const META_CREDITOS = 214;
 const SEMANAS_POR_SEMESTRE = 18;
 // Teto de horas/semestre usado pra empilhar a simulação — mesmo limiar que marca um
 // semestre como "sobrecarregado" no Plano (src/lib/carga.ts), só que aqui vira a
@@ -115,21 +111,23 @@ function simularSemestreFinal(
 
 export function calcularAnalise(
   ucs: Uc[],
+  curso: Curso,
   semestreAtual: number | null = null,
   horasCertificados: number = 0,
 ): AnaliseResumo {
   const { totalConcluido: horasConcluidas, totalMeta: horasMeta } = calcularHoras(
     ucs,
+    curso,
     horasCertificados,
   );
 
-  const obrigatoriasCatalogo = ucs.filter((uc) => TIPOS_OBRIGATORIOS.includes(uc.tipo));
+  const obrigatoriasCatalogo = ucs.filter((uc) => ehObrigatorio(uc.tipo));
   const obrigatoriasConcluidas = obrigatoriasCatalogo.filter(
     (uc) => uc.status === "concluida",
   ).length;
 
   const eletivasConcluidas = ucs.filter(
-    (uc) => TIPOS_ELETIVOS.includes(uc.tipo) && uc.status === "concluida",
+    (uc) => ehEletivo(uc.tipo) && uc.status === "concluida",
   ).length;
 
   const concluidas = ucs.filter((uc) => uc.status === "concluida");
@@ -156,7 +154,7 @@ export function calcularAnalise(
   // semestre simulado junto com as obrigatórias (ver simularSemestreFinal).
   const creditosFaltantesEletivas = Math.max(
     0,
-    META_CREDITOS - creditosConcluidos - creditosPendentesObrigatorias,
+    curso.meta_creditos - creditosConcluidos - creditosPendentesObrigatorias,
   );
 
   const semestreFinal = simularSemestreFinal(
@@ -173,10 +171,10 @@ export function calcularAnalise(
   // conta), então listar as dezenas disponíveis como "o que eu preciso cursar" é ruído —
   // só as obrigatórias representam algo que ela realmente precisa fazer, sem escolha.
   const disponiveis = ucs.filter(
-    (uc) => uc.status === "disponivel" && TIPOS_OBRIGATORIOS.includes(uc.tipo),
+    (uc) => uc.status === "disponivel" && ehObrigatorio(uc.tipo),
   );
   const bloqueadas: UcBloqueada[] = ucs
-    .filter((uc) => uc.status === "bloqueada" && TIPOS_OBRIGATORIOS.includes(uc.tipo))
+    .filter((uc) => uc.status === "bloqueada" && ehObrigatorio(uc.tipo))
     .map((uc) => ({
       uc,
       faltando: missingPrerequisites(uc.pre_requisitos, concludedCodes).map((codigo) => ({
@@ -186,9 +184,9 @@ export function calcularAnalise(
     }));
 
   return {
-    percentualGeral: Math.round((creditosConcluidos / META_CREDITOS) * 100),
+    percentualGeral: Math.round((creditosConcluidos / curso.meta_creditos) * 100),
     creditosConcluidos,
-    creditosMeta: META_CREDITOS,
+    creditosMeta: curso.meta_creditos,
     horasConcluidas,
     horasMeta,
     obrigatoriasConcluidas,

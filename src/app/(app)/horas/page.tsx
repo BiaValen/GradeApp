@@ -4,12 +4,12 @@ import { calcularHoras } from "@/lib/horas";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function HorasPage() {
-  const { ucs, error } = await getMateriasDoUsuario();
+  const { ucs, curso, error } = await getMateriasDoUsuario();
 
-  if (error) {
+  if (error || !curso) {
     return (
       <main className="mx-auto max-w-5xl px-4 py-8">
-        <p className="text-sm text-red-600">Erro ao carregar UCs: {error}</p>
+        <p className="text-sm text-red-600">Erro ao carregar UCs: {error ?? "curso não encontrado."}</p>
       </main>
     );
   }
@@ -24,7 +24,7 @@ export default async function HorasPage() {
     .eq("user_id", user!.id);
   const horasCertificados = (certificados ?? []).reduce((soma, c) => soma + c.horas, 0);
 
-  const { categorias, totalConcluido, totalMeta } = calcularHoras(ucs, horasCertificados);
+  const { categorias, totalConcluido, totalMeta } = calcularHoras(ucs, curso, horasCertificados);
   const percentualTotal = totalMeta > 0 ? Math.round((totalConcluido / totalMeta) * 100) : 0;
 
   return (

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getMateriasDoUsuario } from "@/lib/get-materias";
 import type { Certificado } from "@/lib/types";
 import { CertificadosManager } from "./certificados-manager";
 
@@ -15,6 +16,8 @@ export default async function CertificadosPage() {
     .order("ano", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
+  const { curso } = await getMateriasDoUsuario();
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="mb-4 text-2xl font-semibold">Certificados</h1>
@@ -24,7 +27,10 @@ export default async function CertificadosPage() {
           Erro ao carregar: {error.message}. Rode as migrations mais recentes no Supabase.
         </p>
       ) : (
-        <CertificadosManager certificados={(certificados ?? []) as Certificado[]} />
+        <CertificadosManager
+          certificados={(certificados ?? []) as Certificado[]}
+          metaHoras={curso?.meta_horas_complementares ?? 0}
+        />
       )}
     </main>
   );

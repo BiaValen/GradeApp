@@ -13,8 +13,22 @@ async function requireUser(supabase: Awaited<ReturnType<typeof createClient>>) {
   return user;
 }
 
-async function getDefaultCursoId(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data, error } = await supabase.from("cursos").select("id").limit(1).single();
+// Curso ativo do usuário (definido em /curso ou /config). Perfis antigos sem curso_id
+// já foram backfillados pra Ecomp via migration — o fallback abaixo só cobre o caso
+// defensivo de um perfil sem curso_id nenhum.
+async function getUserCursoId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+) {
+  const { data: perfil } = await supabase
+    .from("perfil")
+    .select("curso_id")
+    .eq("user_id", userId)
+    .single();
+
+  if (perfil?.curso_id) return perfil.curso_id as string;
+
+  const { data, error } = await supabase.from("cursos").select("id").order("nome").limit(1).single();
   if (error || !data) throw new Error("Curso não encontrado. Rode as migrations no Supabase.");
   return data.id as string;
 }
@@ -32,7 +46,7 @@ async function assertPrerequisitosCumpridos(
 
   const { data: uc } = await supabase
     .from("unidades_curriculares")
-    .select("pre_requisitos, curso_id")
+    .select("pre_requisitos")
     .eq("id", ucId)
     .single();
 
@@ -65,21 +79,41 @@ async function assertPrerequisitosCumpridos(
 export async function seedOfficialData() {
   const supabase = await createClient();
   const user = await requireUser(supabase);
+  const cursoId = await getUserCursoId(supabase, user.id);
 
-  const { data: catalogo, error: catalogoError } = await supabase
-    .from("unidades_curriculares")
-    .select("id")
-    .is("criado_por", null);
+  // Duas consultas + merge em JS, em vez de embed do PostgREST (curso_ucs!inner(...)) —
+  // padrão já adotado no resto do app por instabilidade do embed.
+  const { data: vinculos, error: vinculosError } = await supabase
+    .from("curso_ucs")
+    .select("uc_id")
+    .eq("curso_id", cursoId);
 
-  if (catalogoError) return { error: catalogoError.message };
-  if (!catalogo || catalogo.length === 0) {
+  if (vinculosError) return { error: vinculosError.message };
+  if (!vinculos || vinculos.length === 0) {
     return {
       error:
-        "Catálogo oficial vazio. Rode a migration supabase/migrations/20260710000001_seed_catalogo_ecomp.sql no SQL Editor primeiro.",
+        "Catálogo oficial vazio pro seu curso. Rode a migration de seed do catálogo no SQL Editor primeiro.",
     };
   }
 
-  const rows = catalogo.map((uc) => ({ user_id: user.id, uc_id: uc.id }));
+  const { data: oficiais, error: oficiaisError } = await supabase
+    .from("unidades_curriculares")
+    .select("id")
+    .is("criado_por", null)
+    .in(
+      "id",
+      vinculos.map((v) => v.uc_id as string),
+    );
+
+  if (oficiaisError) return { error: oficiaisError.message };
+  if (!oficiais || oficiais.length === 0) {
+    return {
+      error:
+        "Catálogo oficial vazio pro seu curso. Rode a migration de seed do catálogo no SQL Editor primeiro.",
+    };
+  }
+
+  const rows = oficiais.map((uc) => ({ user_id: user.id, uc_id: uc.id as string }));
 
   const { error } = await supabase
     .from("progresso_uc")
@@ -113,17 +147,25 @@ export async function createUc(
 ) {
   const supabase = await createClient();
   const user = await requireUser(supabase);
-  const cursoId = await getDefaultCursoId(supabase);
+  const cursoId = await getUserCursoId(supabase, user.id);
   const input = parseUcForm(formData);
   const grupoEletiva = ((formData.get("grupo_eletiva") as string) ?? "").trim() || null;
 
+  const { tipo, semestre_sugerido, oferta, ...identidade } = input;
+
   const { data: novaUc, error } = await supabase
     .from("unidades_curriculares")
-    .insert({ ...input, curso_id: cursoId, criado_por: user.id })
+    .insert({ ...identidade, criado_por: user.id })
     .select("id")
     .single();
 
   if (error) return { error: error.message };
+
+  const { error: vinculoError } = await supabase
+    .from("curso_ucs")
+    .insert({ curso_id: cursoId, uc_id: novaUc.id, tipo, semestre_sugerido, oferta });
+
+  if (vinculoError) return { error: vinculoError.message };
 
   const { error: progressoError } = await supabase
     .from("progresso_uc")
@@ -145,6 +187,7 @@ export async function updateUc(
 ) {
   const supabase = await createClient();
   const user = await requireUser(supabase);
+  const cursoId = await getUserCursoId(supabase, user.id);
   const grupoEletiva = ((formData.get("grupo_eletiva") as string) ?? "").trim() || null;
   const status = formData.get("status") as string;
 
@@ -153,8 +196,21 @@ export async function updateUc(
 
   if (isPersonal) {
     const input = parseUcForm(formData);
-    const { error } = await supabase.from("unidades_curriculares").update(input).eq("id", id);
+    const { tipo, semestre_sugerido, oferta, ...identidade } = input;
+
+    const { error } = await supabase
+      .from("unidades_curriculares")
+      .update(identidade)
+      .eq("id", id);
     if (error) return { error: error.message };
+
+    const { error: vinculoError } = await supabase
+      .from("curso_ucs")
+      .upsert(
+        { curso_id: cursoId, uc_id: id, tipo, semestre_sugerido, oferta },
+        { onConflict: "curso_id,uc_id" },
+      );
+    if (vinculoError) return { error: vinculoError.message };
   }
 
   const { error: progressoError } = await supabase
@@ -178,18 +234,20 @@ export async function updateUc(
 export async function moverUcSemestre(ucId: string, novoSemestre: number | null) {
   const supabase = await createClient();
   const user = await requireUser(supabase);
+  const cursoId = await getUserCursoId(supabase, user.id);
 
   if (novoSemestre !== null) {
-    const { data: uc } = await supabase
-      .from("unidades_curriculares")
+    const { data: vinculo } = await supabase
+      .from("curso_ucs")
       .select("oferta")
-      .eq("id", ucId)
+      .eq("curso_id", cursoId)
+      .eq("uc_id", ucId)
       .single();
 
-    if (uc?.oferta && uc.oferta !== "ambos") {
+    if (vinculo?.oferta && vinculo.oferta !== "ambos") {
       const paridadeDestino = novoSemestre % 2 === 0 ? "par" : "impar";
-      if (uc.oferta !== paridadeDestino) {
-        const label = uc.oferta === "par" ? "par" : "ímpar";
+      if (vinculo.oferta !== paridadeDestino) {
+        const label = vinculo.oferta === "par" ? "par" : "ímpar";
         return { error: `Essa UC só é oferecida em semestres ${label}.` };
       }
     }
@@ -232,7 +290,7 @@ export async function deleteUc(id: string, isPersonal: boolean) {
   const user = await requireUser(supabase);
 
   if (isPersonal) {
-    // cascata remove o progresso_uc junto
+    // cascata remove curso_ucs e progresso_uc junto
     await supabase.from("unidades_curriculares").delete().eq("id", id);
   } else {
     // UC oficial: só remove da lista pessoal, não do catálogo global

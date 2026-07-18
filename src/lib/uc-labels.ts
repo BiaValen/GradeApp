@@ -6,6 +6,8 @@ export const TIPO_LABELS: Record<UcTipo, string> = {
   bct_eletiva_regular: "Eletiva Regular",
   ecomp_fixa: "Ecomp Fixa",
   ecomp_trajetoria_integrada: "Ecomp Trajetória Integrada",
+  bcc_fixa: "BCC Fixa",
+  bcc_eletiva_regular: "Eletiva Regular BCC",
   estagio: "Estágio",
   tcc: "TCC",
   atividade_complementar: "Atividade Complementar",

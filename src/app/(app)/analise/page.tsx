@@ -10,7 +10,7 @@ export default async function AnalisePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { ucs, error } = await getMateriasDoUsuario();
+  const { ucs, curso, error } = await getMateriasDoUsuario();
   const { data: perfil } = await supabase
     .from("perfil")
     .select("semestre_atual")
@@ -22,15 +22,15 @@ export default async function AnalisePage() {
     .eq("user_id", user!.id);
   const horasCertificados = (certificados ?? []).reduce((soma, c) => soma + c.horas, 0);
 
-  if (error) {
+  if (error || !curso) {
     return (
       <main className="mx-auto max-w-5xl px-4 py-8">
-        <p className="text-sm text-red-600">Erro ao carregar UCs: {error}</p>
+        <p className="text-sm text-red-600">Erro ao carregar UCs: {error ?? "curso não encontrado."}</p>
       </main>
     );
   }
 
-  const resumo = calcularAnalise(ucs, perfil?.semestre_atual ?? null, horasCertificados);
+  const resumo = calcularAnalise(ucs, curso, perfil?.semestre_atual ?? null, horasCertificados);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">

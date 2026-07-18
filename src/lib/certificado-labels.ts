@@ -10,8 +10,6 @@ export const EIXO_LABELS: Record<CertificadoEixo, string> = {
   extensao: "Horas de extensão",
 };
 
-export const META_HORAS_COMPLEMENTARES = 108;
-
 export const EIXO_COLORS: Record<CertificadoEixo, string> = {
   pessoal_cientifica: "bg-blue-100 text-blue-800",
   orientacao_academica: "bg-purple-100 text-purple-800",

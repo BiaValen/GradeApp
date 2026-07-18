@@ -16,6 +16,8 @@ export type UcTipo =
   | "bct_eletiva_regular"
   | "ecomp_fixa"
   | "ecomp_trajetoria_integrada"
+  | "bcc_fixa"
+  | "bcc_eletiva_regular"
   | "estagio"
   | "tcc"
   | "atividade_complementar";

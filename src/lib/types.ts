@@ -3,9 +3,10 @@ import type { UcStatus } from "@/lib/uc-labels";
 
 export type UcOferta = "impar" | "par" | "ambos";
 
+// Uma UC é uma identidade compartilhada entre cursos (curso_ucs guarda a classificação
+// por curso — tipo/semestre_sugerido/oferta); curso_id não vive mais na UC em si.
 export interface UcCatalogo {
   id: string;
-  curso_id: string;
   criado_por: string | null;
   codigo: string;
   nome: string;
@@ -20,6 +21,21 @@ export interface UcCatalogo {
   // quando a UC é realmente oferecida — nem toda UC segue a paridade do semestre_sugerido
   // (UCs BCT costumam rodar todo semestre; específicas da Ecomp, só uma vez por ano).
   oferta: UcOferta;
+}
+
+export interface Curso {
+  id: string;
+  nome: string;
+  universidade: string;
+  semestres_oficiais: number;
+  meta_creditos: number;
+  meta_horas_fixas: number;
+  meta_horas_estagio: number;
+  meta_horas_tcc: number;
+  meta_horas_complementares: number;
+  meta_horas_eletivas: number;
+  meta_horas_extensao: number;
+  meta_horas_total: number;
 }
 
 export interface Uc extends UcCatalogo {

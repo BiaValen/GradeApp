@@ -2,21 +2,22 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { PencilIcon, TrashIcon } from "@/components/icons";
-import {
-  EIXO_COLORS,
-  EIXO_DOT_COLORS,
-  EIXO_LABELS,
-  META_HORAS_COMPLEMENTARES,
-} from "@/lib/certificado-labels";
+import { EIXO_COLORS, EIXO_DOT_COLORS, EIXO_LABELS } from "@/lib/certificado-labels";
 import type { Certificado, CertificadoEixo } from "@/lib/types";
 import { createCertificado, deleteCertificado, updateCertificado } from "./actions";
 
-export function CertificadosManager({ certificados }: { certificados: Certificado[] }) {
+export function CertificadosManager({
+  certificados,
+  metaHoras,
+}: {
+  certificados: Certificado[];
+  metaHoras: number;
+}) {
   const totalHoras = useMemo(
     () => certificados.reduce((soma, c) => soma + c.horas, 0),
     [certificados],
   );
-  const percentual = Math.min(100, Math.round((totalHoras / META_HORAS_COMPLEMENTARES) * 100));
+  const percentual = Math.min(100, Math.round((totalHoras / metaHoras) * 100));
 
   const subtotaisPorEixo = useMemo(() => {
     const mapa = new Map<CertificadoEixo, number>();
@@ -33,7 +34,7 @@ export function CertificadosManager({ certificados }: { certificados: Certificad
           <div>
             <p className="text-sm opacity-90">Atividades complementares</p>
             <p className="text-3xl font-bold">
-              {totalHoras}/{META_HORAS_COMPLEMENTARES}h
+              {totalHoras}/{metaHoras}h
             </p>
           </div>
           <p className="text-4xl font-bold">{percentual}%</p>
@@ -58,9 +59,9 @@ export function CertificadosManager({ certificados }: { certificados: Certificad
       </div>
 
       <p className="text-xs text-neutral-500">
-        O PPC de Ecomp exige 108h no total em atividades complementares (Iniciação
-        Científica, monitoria, palestras, organização de eventos, participação em projetos
-        de extensão etc.) — sem limite individual por eixo, diferente de outros cursos.
+        O PPC do seu curso exige {metaHoras}h no total em atividades complementares
+        (Iniciação Científica, monitoria, palestras, organização de eventos, participação
+        em projetos de extensão etc.) — sem limite individual por eixo.
       </p>
 
       <div className="flex flex-col gap-2">
