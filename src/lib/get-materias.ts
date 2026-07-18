@@ -20,7 +20,7 @@ export async function getMateriasDoUsuario(): Promise<{ ucs: Uc[]; error: string
 
   const { data: progresso } = await supabase
     .from("progresso_uc")
-    .select("uc_id, status, grupo_eletiva, semestre_planejado")
+    .select("uc_id, status, grupo_eletiva, semestre_planejado, importante_pessoal")
     .eq("user_id", user.id);
 
   const progressoMap = new Map((progresso ?? []).map((p) => [p.uc_id, p]));
@@ -43,6 +43,7 @@ export async function getMateriasDoUsuario(): Promise<{ ucs: Uc[]; error: string
         status: computeDisplayStatus(storedStatus, uc.pre_requisitos, concludedCodes),
         grupo_eletiva: progressoMap.get(uc.id)?.grupo_eletiva ?? null,
         semestre_planejado: progressoMap.get(uc.id)?.semestre_planejado ?? null,
+        importante_pessoal: progressoMap.get(uc.id)?.importante_pessoal ?? false,
       };
     });
 

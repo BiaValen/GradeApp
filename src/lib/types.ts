@@ -28,6 +28,9 @@ export interface Uc extends UcCatalogo {
   // onde o usuário decidiu colocar essa UC no próprio planejamento (Plano).
   // null = segue o semestre_sugerido oficial do catálogo.
   semestre_planejado: number | null;
+  // marcação subjetiva da própria usuária (não é o score de importância calculado) —
+  // só destaca o card no Plano, não entra em nenhum cálculo.
+  importante_pessoal: boolean;
 }
 
 export type AtividadeExtraTipo = "extensao" | "ic" | "estagio" | "outro";

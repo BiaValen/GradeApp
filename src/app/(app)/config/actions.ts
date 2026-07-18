@@ -83,3 +83,22 @@ export async function updateSemestreAtual(
   revalidatePath("/plano");
   return { success: true };
 }
+
+export async function updateCurso(
+  _prevState: { error?: string; success?: boolean } | undefined,
+  formData: FormData,
+) {
+  const supabase = await createClient();
+  const user = await requireUser(supabase);
+  const curso_id = formData.get("curso_id") as string;
+
+  const { error } = await supabase
+    .from("perfil")
+    .upsert({ user_id: user.id, curso_id }, { onConflict: "user_id" });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/config");
+  revalidatePath("/plano");
+  return { success: true };
+}

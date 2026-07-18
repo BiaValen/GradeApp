@@ -30,3 +30,17 @@ export function TrashIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export function ExclamationIcon({ className, filled }: { className?: string; filled?: boolean }) {
+  return (
+    <svg
+      {...iconProps(className)}
+      fill={filled ? "currentColor" : "none"}
+      stroke={filled ? "none" : "currentColor"}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v6" stroke={filled ? "white" : "currentColor"} />
+      <circle cx="12" cy="16.5" r="0.75" fill={filled ? "white" : "currentColor"} stroke="none" />
+    </svg>
+  );
+}

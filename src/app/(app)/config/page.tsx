@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { AtividadeExtra } from "@/lib/types";
 import { AtividadesManager } from "./atividades-manager";
+import { CursoForm } from "./curso-form";
 import { SemestreAtualForm } from "./semestre-atual-form";
 
 export default async function ConfigPage() {
@@ -17,13 +18,23 @@ export default async function ConfigPage() {
 
   const { data: perfil } = await supabase
     .from("perfil")
-    .select("semestre_atual")
+    .select("semestre_atual, curso_id")
     .eq("user_id", user!.id)
     .single();
+
+  const { data: cursos } = await supabase.from("cursos").select("id, nome").order("nome");
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="mb-4 text-2xl font-semibold">Configurações pessoais</h1>
+
+      <div className="mb-8 rounded-md border border-neutral-200 p-4">
+        <h2 className="mb-1 text-sm font-semibold">Curso</h2>
+        <p className="mb-3 text-xs text-neutral-500">
+          Define qual grade curricular e PPC o app usa pra você.
+        </p>
+        <CursoForm cursos={cursos ?? []} cursoAtualId={perfil?.curso_id ?? null} />
+      </div>
 
       <div className="mb-8 rounded-md border border-neutral-200 p-4">
         <h2 className="mb-1 text-sm font-semibold">Semestre atual</h2>

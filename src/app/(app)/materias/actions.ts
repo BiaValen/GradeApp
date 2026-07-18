@@ -208,6 +208,25 @@ export async function moverUcSemestre(ucId: string, novoSemestre: number | null)
   return { success: true };
 }
 
+// Marcação subjetiva da própria usuária, só pra destacar o card no Plano — não afeta
+// nenhum cálculo (diferente do score de importância automático em src/lib/importancia.ts).
+export async function toggleImportantePessoal(ucId: string, valor: boolean) {
+  const supabase = await createClient();
+  const user = await requireUser(supabase);
+
+  const { error } = await supabase
+    .from("progresso_uc")
+    .upsert(
+      { user_id: user.id, uc_id: ucId, importante_pessoal: valor },
+      { onConflict: "user_id,uc_id" },
+    );
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/plano");
+  return { success: true };
+}
+
 export async function deleteUc(id: string, isPersonal: boolean) {
   const supabase = await createClient();
   const user = await requireUser(supabase);

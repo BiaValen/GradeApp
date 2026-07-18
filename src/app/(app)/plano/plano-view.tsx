@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ConcluidaCheckbox } from "@/components/ConcluidaCheckbox";
+import { ExclamationIcon } from "@/components/icons";
 import { Toast } from "@/components/Toast";
 import { agruparPorSemestre, CARGA_BAR_COLORS, CARGA_COLORS, CARGA_LABELS, percentualCarga } from "@/lib/carga";
 import { calcularImportancia } from "@/lib/importancia";
 import { aplicarStatusLocal, missingPrerequisites } from "@/lib/status";
 import type { AtividadeExtra, Uc } from "@/lib/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/uc-labels";
-import { moverUcSemestre, updateUcStatus } from "../materias/actions";
+import { moverUcSemestre, toggleImportantePessoal, updateUcStatus } from "../materias/actions";
 import { UcEditModal } from "../materias/uc-edit-modal";
 
 const STORAGE_KEY = "gradeflow:plano:semestres-ocultos";
@@ -139,6 +140,20 @@ export function PlanoView({
       if (result?.error) {
         setUcs(anterior);
         setRowErrors((prev) => ({ ...prev, [ucId]: result.error! }));
+      }
+    });
+  }
+
+  function handleImportanteChange(ucId: string, valor: boolean) {
+    const anterior = ucs;
+    setUcs((prev) =>
+      prev.map((u) => (u.id === ucId ? { ...u, importante_pessoal: valor } : u)),
+    );
+    startTransition(async () => {
+      const result = await toggleImportantePessoal(ucId, valor);
+      if (result?.error) {
+        setUcs(anterior);
+        setMoveError(result.error);
       }
     });
   }
@@ -325,6 +340,7 @@ export function PlanoView({
                       onEdit={() => setEditingUc(uc)}
                       onStatusChange={(status) => handleStatusChange(uc.id, status)}
                       onMove={(destino) => moverPara(uc.id, destino)}
+                      onImportanteChange={(valor) => handleImportanteChange(uc.id, valor)}
                       todosSemestres={todosSemestres}
                     />
                   ))}
@@ -394,6 +410,7 @@ export function PlanoView({
                   opcoesSemestre={opcoesSemestre}
                   onEdit={() => setEditingUc(uc)}
                   onMove={(destino) => moverPara(uc.id, destino)}
+                  onImportanteChange={(valor) => handleImportanteChange(uc.id, valor)}
                 />
               );
             })}
@@ -420,6 +437,7 @@ function UcCard({
   onEdit,
   onStatusChange,
   onMove,
+  onImportanteChange,
   todosSemestres = [],
   className = "",
 }: {
@@ -430,6 +448,7 @@ function UcCard({
   onEdit: () => void;
   onStatusChange: (status: "concluida" | "planejada") => void;
   onMove?: (destino: number | null) => void;
+  onImportanteChange?: (valor: boolean) => void;
   todosSemestres?: number[];
   className?: string;
 }) {
@@ -437,13 +456,18 @@ function UcCard({
     uc.oferta === "ambos" ? todosSemestres : todosSemestres.filter((s) => paridadeBate(uc, s));
   const semestreAtualUc = uc.semestre_planejado ?? uc.semestre_sugerido ?? null;
 
+  const corCard =
+    uc.status === "concluida"
+      ? "border-green-200 bg-green-50"
+      : uc.importante_pessoal
+        ? "border-amber-300 bg-amber-50"
+        : "border-neutral-200 bg-white";
+
   return (
     <div
       draggable
       onDragStart={(e) => e.dataTransfer.setData("text/plain", uc.id)}
-      className={`cursor-grab rounded-md border p-2 text-xs shadow-sm active:cursor-grabbing ${
-        uc.status === "concluida" ? "border-green-200 bg-green-50" : "border-neutral-200 bg-white"
-      } ${className}`}
+      className={`cursor-grab rounded-md border p-2 text-xs shadow-sm active:cursor-grabbing ${corCard} ${className}`}
     >
       <div className="mb-1 flex items-start justify-between gap-2">
         <button
@@ -453,13 +477,30 @@ function UcCard({
         >
           {uc.nome}
         </button>
-        <ConcluidaCheckbox
-          status={uc.status}
-          disabled={isPending}
-          showLabel={false}
-          className="mt-0.5 flex-shrink-0"
-          onChange={onStatusChange}
-        />
+        <div className="flex flex-shrink-0 items-center gap-1">
+          {onImportanteChange && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => onImportanteChange(!uc.importante_pessoal)}
+              title="Marcar como importante pra mim"
+              className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full disabled:opacity-50 ${
+                uc.importante_pessoal
+                  ? "text-amber-500"
+                  : "text-neutral-300 hover:text-amber-400"
+              }`}
+            >
+              <ExclamationIcon className="h-4 w-4" filled={uc.importante_pessoal} />
+            </button>
+          )}
+          <ConcluidaCheckbox
+            status={uc.status}
+            disabled={isPending}
+            showLabel={false}
+            className="mt-0.5"
+            onChange={onStatusChange}
+          />
+        </div>
       </div>
       <div className="mb-1.5 flex flex-wrap items-center gap-2 text-neutral-500">
         <span>{uc.creditos} créd.</span>
@@ -523,6 +564,7 @@ function AtrasadaCard({
   opcoesSemestre,
   onEdit,
   onMove,
+  onImportanteChange,
 }: {
   uc: Uc;
   score: number;
@@ -531,16 +573,36 @@ function AtrasadaCard({
   opcoesSemestre: number[];
   onEdit: () => void;
   onMove: (destino: number) => void;
+  onImportanteChange?: (valor: boolean) => void;
 }) {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-sm">
-      <button
-        type="button"
-        onClick={onEdit}
-        className="text-left font-medium text-neutral-900 hover:underline"
-      >
-        {uc.nome}
-      </button>
+    <div
+      className={`rounded-lg border p-3 text-sm shadow-sm ${
+        uc.importante_pessoal ? "border-amber-300 bg-amber-50" : "border-neutral-200 bg-white"
+      }`}
+    >
+      <div className="mb-0.5 flex items-start justify-between gap-2">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-left font-medium text-neutral-900 hover:underline"
+        >
+          {uc.nome}
+        </button>
+        {onImportanteChange && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => onImportanteChange(!uc.importante_pessoal)}
+            title="Marcar como importante pra mim"
+            className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${
+              uc.importante_pessoal ? "text-amber-500" : "text-neutral-300 hover:text-amber-400"
+            }`}
+          >
+            <ExclamationIcon className="h-4 w-4" filled={uc.importante_pessoal} />
+          </button>
+        )}
+      </div>
       <p className="font-mono text-xs text-neutral-400">{uc.codigo}</p>
       <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
         <span>{uc.creditos} cr</span>

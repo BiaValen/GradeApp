@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { selecionarCurso } from "./actions";
 
 export default async function CursoPage() {
   const supabase = await createClient();
@@ -30,19 +30,20 @@ export default async function CursoPage() {
 
         <div className="flex flex-col gap-2">
           {(cursos ?? []).map((curso) => (
-            <Link
-              key={curso.id}
-              href="/plano"
-              className="flex items-center gap-3 rounded-lg border border-neutral-200 p-3 text-left transition-colors hover:border-blue-400 hover:bg-blue-50"
-            >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-                <CapIcon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-900">{curso.nome}</p>
-                <p className="text-xs text-neutral-500">{curso.universidade}</p>
-              </div>
-            </Link>
+            <form key={curso.id} action={selecionarCurso.bind(null, curso.id)}>
+              <button
+                type="submit"
+                className="flex w-full items-center gap-3 rounded-lg border border-neutral-200 p-3 text-left transition-colors hover:border-blue-400 hover:bg-blue-50"
+              >
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                  <CapIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">{curso.nome}</p>
+                  <p className="text-xs text-neutral-500">{curso.universidade}</p>
+                </div>
+              </button>
+            </form>
           ))}
         </div>
       </div>
