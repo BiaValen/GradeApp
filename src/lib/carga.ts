@@ -74,11 +74,14 @@ export function agruparPorSemestre(
     const efetivo = semestreEfetivo(uc);
     // UC de um semestre já passado que ainda não foi concluída: sai do semestre
     // original (onde ficaria esquecida) e vai pra uma coluna própria de pendências.
+    // Reprovada é exceção: fica no semestre onde foi cursada (registro visual de como foi
+    // aquele semestre), não migra pra "atrasadas" como uma UC nunca tentada.
     const chave: number | "eletivas" | "atrasadas" =
       semestreAtual != null &&
       typeof efetivo === "number" &&
       efetivo < semestreAtual &&
-      uc.status !== "concluida"
+      uc.status !== "concluida" &&
+      uc.status !== "reprovada"
         ? "atrasadas"
         : efetivo;
 

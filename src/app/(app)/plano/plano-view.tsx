@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ConcluidaCheckbox } from "@/components/ConcluidaCheckbox";
 import { ExclamationIcon } from "@/components/icons";
+import { Modal } from "@/components/Modal";
 import { Toast } from "@/components/Toast";
 import { agruparPorSemestre, CARGA_BAR_COLORS, CARGA_COLORS, CARGA_LABELS, percentualCarga } from "@/lib/carga";
+import { calcularPosteriores } from "@/lib/dependencias";
 import { calcularImportancia } from "@/lib/importancia";
 import { aplicarStatusLocal, missingPrerequisites } from "@/lib/status";
 import type { AtividadeExtra, Uc } from "@/lib/types";
@@ -47,6 +49,7 @@ export function PlanoView({
   const [moveError, setMoveError] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [editingUc, setEditingUc] = useState<Uc | null>(null);
+  const [desbloqueiosDeUc, setDesbloqueiosDeUc] = useState<Uc | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setUcs(ucsIniciais), [ucsIniciais]);
@@ -62,6 +65,14 @@ export function PlanoView({
     [ucs],
   );
   const nomePorCodigo = useMemo(() => new Map(ucs.map((u) => [u.codigo, u.nome])), [ucs]);
+
+  const ucsDesbloqueadas = useMemo(() => {
+    if (!desbloqueiosDeUc) return [];
+    const codigos = calcularPosteriores(ucs, desbloqueiosDeUc.codigo);
+    return ucs
+      .filter((u) => codigos.has(u.codigo))
+      .sort((a, b) => (a.semestre_sugerido ?? 999) - (b.semestre_sugerido ?? 999) || a.nome.localeCompare(b.nome));
+  }, [ucs, desbloqueiosDeUc]);
 
   useEffect(() => {
     try {
@@ -341,6 +352,7 @@ export function PlanoView({
                       onStatusChange={(status) => handleStatusChange(uc.id, status)}
                       onMove={(destino) => moverPara(uc.id, destino)}
                       onImportanteChange={(valor) => handleImportanteChange(uc.id, valor)}
+                      onVerDesbloqueios={() => setDesbloqueiosDeUc(uc)}
                       todosSemestres={todosSemestres}
                     />
                   ))}
@@ -411,6 +423,7 @@ export function PlanoView({
                   onEdit={() => setEditingUc(uc)}
                   onMove={(destino) => moverPara(uc.id, destino)}
                   onImportanteChange={(valor) => handleImportanteChange(uc.id, valor)}
+                  onVerDesbloqueios={() => setDesbloqueiosDeUc(uc)}
                 />
               );
             })}
@@ -425,6 +438,36 @@ export function PlanoView({
           onClose={() => setEditingUc(null)}
         />
       )}
+
+      {desbloqueiosDeUc && (
+        <Modal
+          title={`O que ${desbloqueiosDeUc.nome} desbloqueia`}
+          onClose={() => setDesbloqueiosDeUc(null)}
+        >
+          {ucsDesbloqueadas.length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              Nenhuma UC depende dessa, direta ou indiretamente.
+            </p>
+          ) : (
+            <ul className="flex max-h-96 flex-col gap-2 overflow-y-auto">
+              {ucsDesbloqueadas.map((uc) => (
+                <li
+                  key={uc.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 p-2 text-sm"
+                >
+                  <div>
+                    <p className="font-medium">{uc.nome}</p>
+                    <p className="font-mono text-xs text-neutral-500">{uc.codigo}</p>
+                  </div>
+                  <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                    {uc.semestre_sugerido ? `${uc.semestre_sugerido}º sem.` : "eletiva"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
@@ -438,6 +481,7 @@ function UcCard({
   onStatusChange,
   onMove,
   onImportanteChange,
+  onVerDesbloqueios,
   todosSemestres = [],
   className = "",
 }: {
@@ -449,6 +493,7 @@ function UcCard({
   onStatusChange: (status: "concluida" | "planejada") => void;
   onMove?: (destino: number | null) => void;
   onImportanteChange?: (valor: boolean) => void;
+  onVerDesbloqueios?: () => void;
   todosSemestres?: number[];
   className?: string;
 }) {
@@ -459,9 +504,11 @@ function UcCard({
   const corCard =
     uc.status === "concluida"
       ? "border-green-200 bg-green-50"
-      : uc.importante_pessoal
-        ? "border-amber-300 bg-amber-50"
-        : "border-neutral-200 bg-white";
+      : uc.status === "reprovada"
+        ? "border-rose-200 bg-rose-50"
+        : uc.importante_pessoal
+          ? "border-amber-300 bg-amber-50"
+          : "border-neutral-200 bg-white";
 
   return (
     <div
@@ -509,14 +556,24 @@ function UcCard({
           {uc.pre_requisitos.length} pré-req
           {uc.pre_requisitos.length !== 1 ? "s" : ""}
         </span>
-        {score > 0 && (
-          <span
-            title={`Desbloqueia ${score} UC${score !== 1 ? "s" : ""} (direta ou indiretamente)`}
-            className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800"
-          >
-            ★ {score}
-          </span>
-        )}
+        {score > 0 &&
+          (onVerDesbloqueios ? (
+            <button
+              type="button"
+              onClick={onVerDesbloqueios}
+              title={`Ver o que essa UC desbloqueia (${score} UC${score !== 1 ? "s" : ""}, direta ou indiretamente)`}
+              className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800 hover:bg-indigo-200"
+            >
+              ★ {score}
+            </button>
+          ) : (
+            <span
+              title={`Desbloqueia ${score} UC${score !== 1 ? "s" : ""} (direta ou indiretamente)`}
+              className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800"
+            >
+              ★ {score}
+            </span>
+          ))}
       </div>
       <div className="mb-1.5 flex items-center justify-between gap-1">
         <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${STATUS_COLORS[uc.status]}`}>
@@ -565,6 +622,7 @@ function AtrasadaCard({
   onEdit,
   onMove,
   onImportanteChange,
+  onVerDesbloqueios,
 }: {
   uc: Uc;
   score: number;
@@ -574,6 +632,7 @@ function AtrasadaCard({
   onEdit: () => void;
   onMove: (destino: number) => void;
   onImportanteChange?: (valor: boolean) => void;
+  onVerDesbloqueios?: () => void;
 }) {
   return (
     <div
@@ -607,14 +666,24 @@ function AtrasadaCard({
       <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
         <span>{uc.creditos} cr</span>
         <span>{uc.carga_horaria_total}h</span>
-        {score > 0 && (
-          <span
-            title={`Desbloqueia ${score} UC${score !== 1 ? "s" : ""} (direta ou indiretamente)`}
-            className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800"
-          >
-            ★ {score}
-          </span>
-        )}
+        {score > 0 &&
+          (onVerDesbloqueios ? (
+            <button
+              type="button"
+              onClick={onVerDesbloqueios}
+              title={`Ver o que essa UC desbloqueia (${score} UC${score !== 1 ? "s" : ""}, direta ou indiretamente)`}
+              className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800 hover:bg-indigo-200"
+            >
+              ★ {score}
+            </button>
+          ) : (
+            <span
+              title={`Desbloqueia ${score} UC${score !== 1 ? "s" : ""} (direta ou indiretamente)`}
+              className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800"
+            >
+              ★ {score}
+            </span>
+          ))}
       </div>
 
       {faltando.length > 0 ? (

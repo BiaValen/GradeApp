@@ -17,6 +17,7 @@ const STATUS_FILTERS: Array<{ value: "todas" | UcStatus; label: string }> = [
   { value: "disponivel", label: "Disponíveis" },
   { value: "bloqueada", label: "Bloqueadas" },
   { value: "planejada", label: "Planejadas" },
+  { value: "reprovada", label: "Reprovadas" },
 ];
 
 export function MateriasList({

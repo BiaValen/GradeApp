@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { calcularAnteriores, calcularPosteriores } from "@/lib/dependencias";
 import type { Uc } from "@/lib/types";
 import { STATUS_LABELS, type UcStatus } from "@/lib/uc-labels";
 
@@ -10,6 +11,7 @@ const STATUS_FILL: Record<UcStatus, string> = {
   bloqueada: "#ea580c",
   cursando: "#7c3aed",
   planejada: "#a3a3a3",
+  reprovada: "#e11d48",
 };
 
 const COR_ANTERIOR = "#2563eb"; // pré-requisitos do selecionado (ramo "antes")
@@ -29,50 +31,15 @@ interface NodePos {
 }
 
 // Sobe a cadeia de pré-requisitos (o que precisa vir ANTES do selecionado) e desce a
-// cadeia de dependentes (o que só pode vir DEPOIS dele) — ambas via busca em grafo sobre
-// pre_requisitos (por código), transitivamente.
+// cadeia de dependentes (o que só pode vir DEPOIS dele) — lógica compartilhada com o
+// botão "o que desbloqueia" do Plano (ver src/lib/dependencias.ts).
 function useDependencias(ucs: Uc[], selecionado: string | null) {
   return useMemo(() => {
     if (!selecionado) return { anteriores: new Set<string>(), posteriores: new Set<string>() };
-
-    const byCodigo = new Map(ucs.map((u) => [u.codigo, u]));
-
-    const anteriores = new Set<string>();
-    const pilha1 = [selecionado];
-    while (pilha1.length > 0) {
-      const cod = pilha1.pop()!;
-      const uc = byCodigo.get(cod);
-      if (!uc) continue;
-      for (const pre of uc.pre_requisitos) {
-        if (!anteriores.has(pre)) {
-          anteriores.add(pre);
-          pilha1.push(pre);
-        }
-      }
-    }
-
-    const dependentesDiretos = new Map<string, string[]>();
-    for (const uc of ucs) {
-      for (const pre of uc.pre_requisitos) {
-        const lista = dependentesDiretos.get(pre) ?? [];
-        lista.push(uc.codigo);
-        dependentesDiretos.set(pre, lista);
-      }
-    }
-
-    const posteriores = new Set<string>();
-    const pilha2 = [selecionado];
-    while (pilha2.length > 0) {
-      const cod = pilha2.pop()!;
-      for (const dep of dependentesDiretos.get(cod) ?? []) {
-        if (!posteriores.has(dep)) {
-          posteriores.add(dep);
-          pilha2.push(dep);
-        }
-      }
-    }
-
-    return { anteriores, posteriores };
+    return {
+      anteriores: calcularAnteriores(ucs, selecionado),
+      posteriores: calcularPosteriores(ucs, selecionado),
+    };
   }, [ucs, selecionado]);
 }
 

@@ -8,7 +8,12 @@ export function computeDisplayStatus(
   preRequisitos: string[],
   concludedCodes: Set<string>,
 ): UcStatus {
-  if (storedStatus === "concluida" || storedStatus === "cursando") return storedStatus;
+  // reprovada é uma escolha "real" do usuário, igual concluida/cursando — não é
+  // recalculada a partir dos pré-requisitos (não desbloqueia nada, mas também não deve
+  // "voltar" a aparecer como disponível/bloqueada só porque não é concluída).
+  if (storedStatus === "concluida" || storedStatus === "cursando" || storedStatus === "reprovada") {
+    return storedStatus;
+  }
 
   const prereqsMet = preRequisitos.every((codigo) => concludedCodes.has(codigo));
   return prereqsMet ? "disponivel" : "bloqueada";
@@ -32,7 +37,9 @@ export function aplicarStatusLocal(ucs: Uc[], ucId: string, novoStatus: UcStatus
   );
 
   return atualizado.map((uc) => {
-    if (uc.status === "concluida" || uc.status === "cursando") return uc;
+    if (uc.status === "concluida" || uc.status === "cursando" || uc.status === "reprovada") {
+      return uc;
+    }
     return { ...uc, status: computeDisplayStatus("planejada", uc.pre_requisitos, concludedCodes) };
   });
 }

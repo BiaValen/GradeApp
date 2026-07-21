@@ -6,14 +6,20 @@ import type { Uc } from "@/lib/types";
 import { STATUS_LABELS, TIPO_LABELS, type UcStatus } from "@/lib/uc-labels";
 
 // disponível/bloqueada são calculados a partir dos pré-requisitos — não aparecem como opção.
-const EDITABLE_STATUS: Array<{ value: "concluida" | "cursando" | "planejada"; label: string }> = [
+const EDITABLE_STATUS: Array<{
+  value: "concluida" | "cursando" | "planejada" | "reprovada";
+  label: string;
+}> = [
   { value: "planejada", label: "Planejada" },
   { value: "cursando", label: "Cursando" },
   { value: "concluida", label: "Concluída" },
+  { value: "reprovada", label: "Reprovada" },
 ];
 
-function toEditableValue(status: UcStatus): "concluida" | "cursando" | "planejada" {
-  if (status === "concluida" || status === "cursando") return status;
+function toEditableValue(
+  status: UcStatus,
+): "concluida" | "cursando" | "planejada" | "reprovada" {
+  if (status === "concluida" || status === "cursando" || status === "reprovada") return status;
   return "planejada";
 }
 
