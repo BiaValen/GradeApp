@@ -9,10 +9,12 @@ import { UcForm } from "./uc-form";
 export function UcEditModal({
   uc,
   isPersonal,
+  nomePorCodigo,
   onClose,
 }: {
   uc: Uc;
   isPersonal: boolean;
+  nomePorCodigo?: Map<string, string>;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -24,6 +26,7 @@ export function UcEditModal({
         action={updateUcWithId}
         initial={uc}
         editableCatalogo={isPersonal}
+        nomePorCodigo={nomePorCodigo}
         onSuccess={() => {
           onClose();
           router.refresh();

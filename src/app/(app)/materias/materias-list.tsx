@@ -242,6 +242,7 @@ export function MateriasList({
         <UcEditModal
           uc={editingUc}
           isPersonal={editingUc.criado_por === currentUserId}
+          nomePorCodigo={nomePorCodigo}
           onClose={() => setEditingUc(null)}
         />
       )}

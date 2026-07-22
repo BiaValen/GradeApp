@@ -32,11 +32,15 @@ export function UcForm({
   action,
   initial,
   editableCatalogo = true,
+  nomePorCodigo,
   onSuccess,
 }: {
   action: FormAction;
   initial?: Uc;
   editableCatalogo?: boolean;
+  // pra mostrar nome em vez de código nos pré-requisitos quando o campo está desabilitado
+  // (UC oficial) — quando editável, o campo continua aceitando códigos (entrada livre).
+  nomePorCodigo?: Map<string, string>;
   // se não for passado, navega pra /materias (comportamento da página standalone de edição).
   // se for passado (uso em modal), chama isso em vez de navegar.
   onSuccess?: () => void;
@@ -183,9 +187,19 @@ export function UcForm({
         </label>
         {temPreRequisitos && (
           <Field
-            label="Códigos dos pré-requisitos (separados por vírgula)"
+            label={
+              editableCatalogo
+                ? "Códigos dos pré-requisitos (separados por vírgula)"
+                : "Pré-requisitos"
+            }
             name="pre_requisitos"
-            defaultValue={initial?.pre_requisitos?.join(", ")}
+            defaultValue={
+              editableCatalogo
+                ? initial?.pre_requisitos?.join(", ")
+                : initial?.pre_requisitos
+                    ?.map((codigo) => nomePorCodigo?.get(codigo) ?? codigo)
+                    .join(", ")
+            }
             disabled={!editableCatalogo}
           />
         )}
