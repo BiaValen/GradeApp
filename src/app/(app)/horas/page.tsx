@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getMateriasDoUsuario } from "@/lib/get-materias";
 import { calcularHoras } from "@/lib/horas";
 import { createClient } from "@/lib/supabase/server";
+import { HorasInfoButton } from "./horas-info";
 
 export default async function HorasPage() {
   const { ucs, curso, error } = await getMateriasDoUsuario();
@@ -34,7 +35,10 @@ export default async function HorasPage() {
       <div className="mb-6 overflow-hidden rounded-lg bg-gradient-to-r from-blue-600 via-teal-500 to-amber-500 p-6 text-white">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <p className="text-sm opacity-90">Horas para formatura</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm opacity-90">Horas para formatura</p>
+              <HorasInfoButton curso={curso} categorias={categorias} totalMeta={totalMeta} />
+            </div>
             <p className="text-3xl font-bold">
               {totalConcluido}/{totalMeta}h
             </p>

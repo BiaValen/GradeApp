@@ -31,6 +31,16 @@ export function TrashIcon({ className }: { className?: string }) {
   );
 }
 
+export function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg {...iconProps(className)}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="7.75" r="0.75" fill="currentColor" stroke="none" />
+      <path d="M12 11v6" />
+    </svg>
+  );
+}
+
 export function ExclamationIcon({ className, filled }: { className?: string; filled?: boolean }) {
   return (
     <svg
