@@ -155,6 +155,23 @@ export function PlanoView({
     });
   }
 
+  // Toggle rápido direto no badge de status — mais fácil que abrir o modal de edição só
+  // pra marcar reprovada. Desmarcar volta pra "planejada" e deixa aplicarStatusLocal
+  // recalcular disponível/bloqueada, igual já acontece com o checkbox de concluída.
+  function handleReprovadaChange(ucId: string, valor: boolean) {
+    const anterior = ucs;
+    const novoStatus = valor ? "reprovada" : "planejada";
+    setUcs((prev) => aplicarStatusLocal(prev, ucId, novoStatus));
+
+    startTransition(async () => {
+      const result = await updateUcStatus(ucId, novoStatus);
+      if (result?.error) {
+        setUcs(anterior);
+        setMoveError(result.error);
+      }
+    });
+  }
+
   function handleImportanteChange(ucId: string, valor: boolean) {
     const anterior = ucs;
     setUcs((prev) =>
@@ -352,6 +369,7 @@ export function PlanoView({
                       onStatusChange={(status) => handleStatusChange(uc.id, status)}
                       onMove={(destino) => moverPara(uc.id, destino)}
                       onImportanteChange={(valor) => handleImportanteChange(uc.id, valor)}
+                      onReprovadaChange={(valor) => handleReprovadaChange(uc.id, valor)}
                       onVerDesbloqueios={() => setDesbloqueiosDeUc(uc)}
                       todosSemestres={todosSemestres}
                     />
@@ -423,6 +441,7 @@ export function PlanoView({
                   onEdit={() => setEditingUc(uc)}
                   onMove={(destino) => moverPara(uc.id, destino)}
                   onImportanteChange={(valor) => handleImportanteChange(uc.id, valor)}
+                  onReprovadaChange={(valor) => handleReprovadaChange(uc.id, valor)}
                   onVerDesbloqueios={() => setDesbloqueiosDeUc(uc)}
                 />
               );
@@ -481,6 +500,7 @@ function UcCard({
   onStatusChange,
   onMove,
   onImportanteChange,
+  onReprovadaChange,
   onVerDesbloqueios,
   todosSemestres = [],
   className = "",
@@ -493,6 +513,7 @@ function UcCard({
   onStatusChange: (status: "concluida" | "planejada") => void;
   onMove?: (destino: number | null) => void;
   onImportanteChange?: (valor: boolean) => void;
+  onReprovadaChange?: (valor: boolean) => void;
   onVerDesbloqueios?: () => void;
   todosSemestres?: number[];
   className?: string;
@@ -576,9 +597,25 @@ function UcCard({
           ))}
       </div>
       <div className="mb-1.5 flex items-center justify-between gap-1">
-        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${STATUS_COLORS[uc.status]}`}>
-          {STATUS_LABELS[uc.status]}
-        </span>
+        {onReprovadaChange ? (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => onReprovadaChange(uc.status !== "reprovada")}
+            title={
+              uc.status === "reprovada"
+                ? "Desmarcar reprovada"
+                : "Marcar como reprovada (cursada e não aprovada)"
+            }
+            className={`rounded-full px-1.5 py-0.5 text-[10px] hover:opacity-80 disabled:opacity-50 ${STATUS_COLORS[uc.status]}`}
+          >
+            {STATUS_LABELS[uc.status]}
+          </button>
+        ) : (
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${STATUS_COLORS[uc.status]}`}>
+            {STATUS_LABELS[uc.status]}
+          </span>
+        )}
         {onMove && (
           <select
             value=""
@@ -622,6 +659,7 @@ function AtrasadaCard({
   onEdit,
   onMove,
   onImportanteChange,
+  onReprovadaChange,
   onVerDesbloqueios,
 }: {
   uc: Uc;
@@ -632,14 +670,18 @@ function AtrasadaCard({
   onEdit: () => void;
   onMove: (destino: number) => void;
   onImportanteChange?: (valor: boolean) => void;
+  onReprovadaChange?: (valor: boolean) => void;
   onVerDesbloqueios?: () => void;
 }) {
+  const corCard =
+    uc.status === "reprovada"
+      ? "border-rose-200 bg-rose-50"
+      : uc.importante_pessoal
+        ? "border-amber-300 bg-amber-50"
+        : "border-neutral-200 bg-white";
+
   return (
-    <div
-      className={`rounded-lg border p-3 text-sm shadow-sm ${
-        uc.importante_pessoal ? "border-amber-300 bg-amber-50" : "border-neutral-200 bg-white"
-      }`}
-    >
+    <div className={`rounded-lg border p-3 text-sm shadow-sm ${corCard}`}>
       <div className="mb-0.5 flex items-start justify-between gap-2">
         <button
           type="button"
@@ -666,6 +708,21 @@ function AtrasadaCard({
       <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
         <span>{uc.creditos} cr</span>
         <span>{uc.carga_horaria_total}h</span>
+        {onReprovadaChange && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => onReprovadaChange(uc.status !== "reprovada")}
+            title={
+              uc.status === "reprovada"
+                ? "Desmarcar reprovada"
+                : "Marcar como reprovada (cursada e não aprovada)"
+            }
+            className={`rounded-full px-1.5 py-0.5 text-[10px] hover:opacity-80 disabled:opacity-50 ${STATUS_COLORS[uc.status]}`}
+          >
+            {STATUS_LABELS[uc.status]}
+          </button>
+        )}
         {score > 0 &&
           (onVerDesbloqueios ? (
             <button

@@ -70,24 +70,36 @@ export function agruparPorSemestre(
     if (!grupos.has(sem)) grupos.set(sem, []);
   }
 
+  function adicionarEm(chave: number | "eletivas" | "atrasadas", uc: Uc) {
+    const lista = grupos.get(chave) ?? [];
+    lista.push(uc);
+    grupos.set(chave, lista);
+  }
+
   for (const uc of ucs) {
     const efetivo = semestreEfetivo(uc);
+
+    if (uc.status === "reprovada") {
+      // Reprovada aparece nos dois lugares: no semestre onde foi cursada (registro de
+      // como foi aquele semestre) e também em "atrasadas" como pendência — precisa ser
+      // recursada, então conta como pendente igual uma UC nunca tentada, mesmo que o
+      // semestre onde reprovou seja o atual (não só semestres já passados).
+      adicionarEm(efetivo, uc);
+      adicionarEm("atrasadas", uc);
+      continue;
+    }
+
     // UC de um semestre já passado que ainda não foi concluída: sai do semestre
     // original (onde ficaria esquecida) e vai pra uma coluna própria de pendências.
-    // Reprovada é exceção: fica no semestre onde foi cursada (registro visual de como foi
-    // aquele semestre), não migra pra "atrasadas" como uma UC nunca tentada.
     const chave: number | "eletivas" | "atrasadas" =
       semestreAtual != null &&
       typeof efetivo === "number" &&
       efetivo < semestreAtual &&
-      uc.status !== "concluida" &&
-      uc.status !== "reprovada"
+      uc.status !== "concluida"
         ? "atrasadas"
         : efetivo;
 
-    const lista = grupos.get(chave) ?? [];
-    lista.push(uc);
-    grupos.set(chave, lista);
+    adicionarEm(chave, uc);
   }
 
   const atividadesPorSemestre = new Map<number, AtividadeExtra[]>();
