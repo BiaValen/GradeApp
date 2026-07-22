@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getMateriasDoUsuario } from "@/lib/get-materias";
 import { calcularHoras } from "@/lib/horas";
 import { createClient } from "@/lib/supabase/server";
+import { CategoriaCard } from "./categoria-card";
 import { HorasInfoButton } from "./horas-info";
 
 export default async function HorasPage() {
@@ -54,33 +55,19 @@ export default async function HorasPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {categorias.map((cat) => {
-          const percentual = cat.meta > 0 ? Math.round((cat.concluidas / cat.meta) * 100) : 0;
-          return (
-            <div key={cat.chave} className="rounded-lg border border-neutral-200 p-5">
-              <h2 className="font-semibold">{cat.titulo}</h2>
-              <p className="mt-1 text-sm text-neutral-500">{cat.descricao}</p>
-              <div className="mt-4 flex items-baseline justify-between">
-                <p className="text-2xl font-bold">
-                  {cat.concluidas}
-                  <span className="text-sm font-normal text-neutral-500">/{cat.meta}h</span>
-                </p>
-                <span className="text-sm font-medium text-blue-600">{percentual}%</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
-                <div
-                  className="h-full rounded-full bg-amber-500"
-                  style={{ width: `${Math.min(100, percentual)}%` }}
-                />
-              </div>
-              {cat.chave === "complementares" && (
+        {categorias.map((cat) => (
+          <CategoriaCard
+            key={cat.chave}
+            cat={cat}
+            footer={
+              cat.chave === "complementares" ? (
                 <Link href="/certificados" className="mt-3 inline-block text-xs text-blue-600 underline">
                   Gerenciar certificados →
                 </Link>
-              )}
-            </div>
-          );
-        })}
+              ) : undefined
+            }
+          />
+        ))}
       </div>
     </main>
   );

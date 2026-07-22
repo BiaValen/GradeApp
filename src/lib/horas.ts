@@ -7,6 +7,12 @@ export interface CategoriaHoras {
   descricao: string;
   concluidas: number;
   meta: number;
+  // UCs que contam pra essa categoria — pra "fixas"/"estágio"/"tcc" (checklist fechado
+  // de UCs específicas) inclui concluídas E pendentes, pra dar pra ver o que falta.
+  // "eletivas" só lista as já concluídas (é escolha livre entre dezenas de opções do
+  // catálogo — listar as pendentes ali seria ruído, mesmo critério já usado em
+  // src/lib/analise.ts pras eletivas não aparecerem em "disponíveis"/"bloqueadas").
+  ucs: Uc[];
 }
 
 function somaHoras(ucs: Uc[]): number {
@@ -30,11 +36,22 @@ export function calcularHoras(
   totalMeta: number;
 } {
   const concluidas = ucs.filter((uc) => uc.status === "concluida");
+  const ordenarPorSemestre = (lista: Uc[]) =>
+    [...lista].sort(
+      (a, b) => (a.semestre_sugerido ?? 999) - (b.semestre_sugerido ?? 999) || a.nome.localeCompare(b.nome),
+    );
 
-  const fixas = concluidas.filter((uc) => ehTipoFixo(uc.tipo));
-  const estagio = concluidas.filter((uc) => uc.tipo === "estagio");
-  const tcc = concluidas.filter((uc) => uc.tipo === "tcc");
-  const eletivas = concluidas.filter((uc) => ehTipoEletivo(uc.tipo));
+  // checklist fechado: todas as UCs desse tipo (concluídas e pendentes), não só as feitas.
+  const fixasTodas = ordenarPorSemestre(ucs.filter((uc) => ehTipoFixo(uc.tipo)));
+  const estagioTodas = ordenarPorSemestre(ucs.filter((uc) => uc.tipo === "estagio"));
+  const tccTodas = ordenarPorSemestre(ucs.filter((uc) => uc.tipo === "tcc"));
+  const eletivasConcluidas = ordenarPorSemestre(
+    concluidas.filter((uc) => ehTipoEletivo(uc.tipo)),
+  );
+
+  const fixas = fixasTodas.filter((uc) => uc.status === "concluida");
+  const estagio = estagioTodas.filter((uc) => uc.status === "concluida");
+  const tcc = tccTodas.filter((uc) => uc.status === "concluida");
   const extensaoHoras = concluidas.reduce((soma, uc) => soma + uc.carga_horaria_extensao, 0);
 
   const categorias: CategoriaHoras[] = [
@@ -44,6 +61,7 @@ export function calcularHoras(
       descricao: "Carga horária total das unidades curriculares fixas do curso.",
       concluidas: somaHoras(fixas),
       meta: curso.meta_horas_fixas,
+      ucs: fixasTodas,
     },
     {
       chave: "estagio",
@@ -51,6 +69,7 @@ export function calcularHoras(
       descricao: "Carga horária mínima para o estágio supervisionado obrigatório.",
       concluidas: somaHoras(estagio),
       meta: curso.meta_horas_estagio,
+      ucs: estagioTodas,
     },
     {
       chave: "tcc",
@@ -58,6 +77,7 @@ export function calcularHoras(
       descricao: "Carga horária total para o Trabalho de Conclusão de Curso (TCC I e TCC II).",
       concluidas: somaHoras(tcc),
       meta: curso.meta_horas_tcc,
+      ucs: tccTodas,
     },
     {
       chave: "complementares",
@@ -66,13 +86,15 @@ export function calcularHoras(
         "Soma dos certificados cadastrados em /certificados — Iniciação Científica, Monitoria, participação em eventos etc.",
       concluidas: horasCertificados,
       meta: curso.meta_horas_complementares,
+      ucs: [],
     },
     {
       chave: "eletivas",
       titulo: "UCs Eletivas",
       descricao: "Carga horária total das unidades curriculares eletivas do curso.",
-      concluidas: somaHoras(eletivas),
+      concluidas: somaHoras(eletivasConcluidas),
       meta: curso.meta_horas_eletivas,
+      ucs: eletivasConcluidas,
     },
     {
       chave: "extensao",
@@ -81,6 +103,7 @@ export function calcularHoras(
         "Carga horária mínima em atividades de extensão, distribuída em unidades curriculares fixas e eletivas, exigida para alunos ingressantes a partir de 2023.",
       concluidas: extensaoHoras,
       meta: curso.meta_horas_extensao,
+      ucs: [],
     },
   ];
 
@@ -92,7 +115,7 @@ export function calcularHoras(
     somaHoras(estagio) +
     somaHoras(tcc) +
     complementaresParaTotal +
-    somaHoras(eletivas);
+    somaHoras(eletivasConcluidas);
 
   return { categorias, totalConcluido, totalMeta: curso.meta_horas_total };
 }
